@@ -371,6 +371,45 @@ cc_library(
 )
 
 cc_library(
+    name = "pass",
+    hdrs = ["transforms/pass.h"],
+    compatible_with = get_compatible_with_portable(),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pass_options_setter",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+)
+
+cc_library(
+    name = "pass_options_setter",
+    hdrs = ["transforms/pass_options_setter.h"],
+    compatible_with = get_compatible_with_portable(),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@llvm-project//llvm:Support",
+    ],
+)
+
+cc_library(
+    name = "toco_pass_options_setter",
+    srcs = ["transforms/toco_pass_options_setter.cc"],
+    hdrs = ["transforms/toco_pass_options_setter.h"],
+    compatible_with = get_compatible_with_portable(),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pass_options_setter",
+        "//tensorflow/compiler/mlir/lite:common",
+        "//tensorflow/compiler/mlir/lite:optimize_pass_options",
+        "//tensorflow/lite/toco:toco_flags_proto_cc",
+        "@llvm-project//llvm:Support",
+    ],
+)
+
+cc_library(
     name = "tensorflow_lite_ops",
     srcs = [
         "ir/tfl_ops.cc",
@@ -437,7 +476,7 @@ cc_library(
     ],
     hdrs = [
         "ir/tfl_ops.h",
-        "transforms/optimize.h",
+        "transforms/optimize_pass.h",
         "transforms/passes.h",
         "utils/attribute_utils.h",
         "utils/utils.h",
@@ -446,6 +485,8 @@ cc_library(
         ":attribute_utils",
         ":converter_inc",
         ":cost_estimators",
+        ":optimize_pass_options",
+        ":pass",
         ":size_utils",
         ":tensorflow_lite_canonicalize_inc_gen",
         ":tensorflow_lite_op_enums_inc_gen",
@@ -780,6 +821,7 @@ cc_library(
         "transforms/passes.h",
     ],
     deps = [
+        ":attribute_utils",
         ":constant_utils",
         ":convert_type",
         ":cost_estimators",
@@ -860,18 +902,19 @@ cc_library(
     name = "tensorflow_lite_optimize",
     srcs = [
         "transforms/generated_optimize.inc",
-        "transforms/optimize.cc",
+        "transforms/optimize_pass.cc",
     ],
     hdrs = [
-        "transforms/optimize.h",
+        "transforms/optimize_pass.h",
     ],
     deps = [
         ":attribute_utils",
         ":constant_utils",
         ":convert_type",
+        ":optimize_pass_options",
+        ":pass",
         ":tensorflow_lite_ops",
         ":tensorflow_lite_optimize_inc_gen",
-        ":tensorflow_lite_passes_inc_gen",
         ":utils",
         ":validators",
         "//tensorflow/compiler/mlir/quantization/common/quantization_lib",
@@ -953,6 +996,7 @@ cc_library(
         "transforms/passes.h",
     ],
     deps = [
+        ":pass",
         ":tensorflow_lite",
         ":tensorflow_lite_passes_inc_gen",
         "//tensorflow/compiler/mlir/lite/stablehlo:optimize_layout",
@@ -1342,6 +1386,15 @@ cc_library(
 )
 
 cc_library(
+    name = "optimize_pass_options",
+    hdrs = ["transforms/optimize_pass_options.h"],
+    deps = [
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Pass",
+    ],
+)
+
+cc_library(
     name = "flatbuffer_translate_lib",
     hdrs = [
         "flatbuffer_export.h",
@@ -1475,12 +1528,14 @@ cc_library(
     deps = [
         ":common",
         ":fake_quant_utils",
+        ":pass",
         ":tensorflow_lite_d2s",  # buildcleaner: keep
         ":tensorflow_lite_legalize_tf",  # buildcleaner: keep
         ":tensorflow_lite_optimize",  # buildcleaner: keep
         ":tensorflow_lite_optimize_batch_matmul",  # buildcleaner: keep
         ":tensorflow_lite_push_transpose_through_ewise",  # buildcleaner: keep
         ":tensorflow_lite_quantize",  # buildcleaner: keep
+        ":toco_pass_options_setter",
         "//tensorflow/compiler/mlir/lite/quantization:quantization_passes",
         "//tensorflow/compiler/mlir/lite/quantization/tensorflow:tf_quantization_passes",
         "//tensorflow/compiler/mlir/lite/stablehlo:build_stablehlo_composite",
