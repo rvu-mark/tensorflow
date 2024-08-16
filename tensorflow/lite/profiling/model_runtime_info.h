@@ -12,9 +12,21 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#ifndef TENSORFLOW_LITE_SCHEMA_SCHEMA_GENERATED_H_
-#define TENSORFLOW_LITE_SCHEMA_SCHEMA_GENERATED_H_
 
-#include "tensorflow/compiler/mlir/lite/schema/schema_generated.h"
+#ifndef TENSORFLOW_LITE_PROFILING_MODEL_RUNTIME_INFO_H_
+#define TENSORFLOW_LITE_PROFILING_MODEL_RUNTIME_INFO_H_
 
-#endif  // TENSORFLOW_LITE_SCHEMA_SCHEMA_GENERATED_H_
+#include "absl/strings/string_view.h"
+#include "tensorflow/lite/core/interpreter.h"
+
+namespace tflite {
+namespace profiling {
+
+// Generates a ModelRuntimeInfo proto for the given interpreter and writes it to
+// the given output file path.
+TfLiteStatus GenerateModelRuntimeInfo(const Interpreter &interpreter,
+                                      absl::string_view output_file_path);
+}  // namespace profiling
+}  // namespace tflite
+
+#endif  // TENSORFLOW_LITE_PROFILING_MODEL_RUNTIME_INFO_H_
