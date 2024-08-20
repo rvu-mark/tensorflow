@@ -1,4 +1,5 @@
 load("//tensorflow:tensorflow.default.bzl", "get_compatible_with_portable")
+load("//tensorflow/compiler/mlir/lite:build_def.bzl", "tflite_copts")
 
 package(
     # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
@@ -23,3 +24,19 @@ cc_library(
     ],
 )
 # LINT.ThenChange(//tensorflow/lite/kernels/BUILD)
+
+cc_library(
+    name = "kernel_util",
+    srcs = [
+        "kernel_util.cc",
+    ],
+    hdrs = [
+        "kernel_util.h",
+    ],
+    compatible_with = get_compatible_with_portable(),
+    copts = tflite_copts(),
+    deps = [
+        "//tensorflow/compiler/mlir/lite:kernel_api",
+        "//tensorflow/compiler/mlir/lite/core/c:common",
+    ],
+)
