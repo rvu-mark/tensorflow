@@ -50,9 +50,9 @@ limitations under the License.
 #include "xla/shape.h"
 #include "xla/shape_util.h"
 #include "xla/status_macros.h"
+#include "xla/tsl/lib/gtl/iterator_range.h"
 #include "xla/util.h"
 #include "xla/xla_data.pb.h"
-#include "tsl/lib/gtl/iterator_range.h"
 #include "tsl/platform/errors.h"
 #include "tsl/platform/logging.h"
 #include "tsl/platform/status.h"
@@ -1429,7 +1429,8 @@ absl::StatusOr<bool> HloComputation::ReplaceInstructionWithDifferentShape(
     // Fusions are handled separately. The original_value attribute of fused
     // instructions is copied when they are added into the fused computation.
     if (new_instruction->opcode() != HloOpcode::kFusion) {
-      if (new_instruction->shape() == old_instruction->shape()) {
+      if (ShapeUtil::Compatible(old_instruction->shape(),
+                                new_instruction->shape())) {
         new_instruction->set_original_value(old_original_value);
       } else {
         LOG(WARNING)
