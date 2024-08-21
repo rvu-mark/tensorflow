@@ -20,6 +20,7 @@ limitations under the License.
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/log.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "tsl/platform/types.h"
@@ -55,11 +56,19 @@ XPlaneBuilder::XPlaneBuilder(XPlane* plane)
 
 XEventMetadata* XPlaneBuilder::GetOrCreateEventMetadata(int64_t metadata_id) {
   XEventMetadata& metadata = (*plane_->mutable_event_metadata())[metadata_id];
+  LOG_IF_EVERY_N_SEC(ERROR, last_event_metadata_id_ != 0 && metadata.id() != 0,
+                     1)
+      << "Both overloads of GetOrCreateEventMetadata have been called on the "
+         "same XPlane which is forbidden.";
   metadata.set_id(metadata_id);
   return &metadata;
 }
 
 XEventMetadata* XPlaneBuilder::CreateEventMetadata() {
+  LOG_IF_EVERY_N_SEC(
+      ERROR, plane_->event_metadata_size() != last_event_metadata_id_, 1)
+      << "Both overloads of GetOrCreateEventMetadata have been called on the "
+         "same XPlane which is forbidden.";
   return GetOrCreateEventMetadata(++last_event_metadata_id_);
 }
 
