@@ -27,6 +27,12 @@ if [[ "$TFCI_NIGHTLY_UPDATE_VERSION_ENABLE" == 1 ]]; then
   export TFCI_BUILD_PIP_PACKAGE_ARGS="$(echo $TFCI_BUILD_PIP_PACKAGE_ARGS | sed 's/tensorflow/tf_nightly/')"
 fi
 
+# TODO(b/361598556) Remove the check after TF NumPy 2 upgrade
+# Move hermetic requirement lock files for NumPy 2 to the root
+if [[ "$TFCI_WHL_NUMPY_VERSION" == 2 ]]; then
+  cp ./ci/official/requirements_updater/requirements_numpy2/*.txt .
+fi
+
 tfrun bazel build $TFCI_BAZEL_COMMON_ARGS --config=cuda_wheel //tensorflow/tools/pip_package:wheel $TFCI_BUILD_PIP_PACKAGE_ARGS
 tfrun find ./bazel-bin/tensorflow/tools/pip_package -iname "*.whl" -exec cp {} $TFCI_OUTPUT_DIR \;
 tfrun ./ci/official/utilities/rename_and_verify_wheels.sh
@@ -38,4 +44,7 @@ fi
 
 if [[ "$TFCI_WHL_BAZEL_TEST_ENABLE" == 1 ]]; then
   tfrun bazel test $TFCI_BAZEL_COMMON_ARGS --config="${TFCI_BAZEL_TARGET_SELECTING_CONFIG_PREFIX}_wheel_test"
+  if [[ "TFCI_BAZEL_TARGET_SELECTING_CONFIG_PREFIX" == "linux_cuda" ]]; then
+    tfrun bazel test $TFCI_BAZEL_COMMON_ARGS --config="${TFCI_BAZEL_TARGET_SELECTING_CONFIG_PREFIX}_wheel_api_test"
+  fi
 fi
