@@ -78,6 +78,7 @@ cc_library(
     local_defines = if_cuda_is_configured(["GOOGLE_CUDA=1"]),
     deps = [
         ":fusion_emitter",
+        "//xla:literal",
         "//xla:shape_util",
         "//xla:status_macros",
         "//xla:util",
@@ -162,6 +163,7 @@ xla_test(
         "//xla/tests:test_utils",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest",
         "@local_tsl//tsl/platform:errors",
         "@local_tsl//tsl/platform:statusor",
         "@local_tsl//tsl/platform:test",
