@@ -28,6 +28,12 @@ def ShapeToConst : NativeCodeCall<"ShapeToConst($_builder, $0)">;
 def CreateTFLCastToInt32Op : NativeCodeCall<
   "CreateCastToInt32($0, $_loc, $_builder)">;
 
+def : Pat<
+  (MHLO_ConstantOp:$output $value),
+  (Arith_ConstantOp $value),
+  [(TFL_TensorOf<[AnyType]> $output)]>;
+
+
 //===----------------------------------------------------------------------===//
 // data movement
 //===----------------------------------------------------------------------===//
@@ -232,6 +238,7 @@ foreach pair = [
 // Binary ops with fused activiation attr.
 foreach pair = [
   [MHLO_DivOp, TFL_DivOp],
+  [MHLO_AddOp, TFL_AddOp],
   [MHLO_MulOp, TFL_MulOp],
   [MHLO_SubtractOp, TFL_SubOp],
 ] in {
