@@ -246,14 +246,14 @@ func.func @check_output_sharding_for_while_region_op(%arg0 : tensor<i32>, %arg1:
   %0 = "tf.ReadVariableOp"(%arg1) : (tensor<*x!tf_type.resource<tensor<128x1024xf32>>>) -> tensor<128x1024xf32>
   %1:1 = "tf_device.cluster_func"(%arg0, %0) {func = @func_with_sharded_while_region_op_output, step_marker_location = "STEP_MARK_AT_TOP_LEVEL_WHILE_LOOP", num_cores_per_replica = 2 : i64, use_spmd_for_xla_partitioning = true, use_tpu = true} : (tensor<i32>, tensor<128x1024xf32>) -> (tensor<128x1024xf32>)
   // CHECK: input_sharding_configuration
-  // CHECK-SAME: ["", ""]
+  // CHECK-SAME: ["", "\0D\0E\0F"]
   // CHECK: output_sharding_configuration
   // CHECK-SAME: ["\0D\0E\0F"]
   func.return
 }
 
 // CHECK-LABEL: func @func_with_sharded_while_region_op_output
-// CHECK-SAME: (%{{[a-z0-9]+}}: tensor<i32> {mhlo.sharding = ""}, %{{[a-z0-9]+}}: tensor<128x1024xf32> {mhlo.sharding = ""})
+// CHECK-SAME: (%{{[a-z0-9]+}}: tensor<i32> {mhlo.sharding = ""}, %{{[a-z0-9]+}}: tensor<128x1024xf32> {mhlo.sharding = "\0D\0E\0F"})
 // CHECK-SAME: -> (tensor<128x1024xf32> {mhlo.sharding = "\0D\0E\0F"})
 func.func @func_with_sharded_while_region_op_output(%arg0: tensor<i32>, %arg1: tensor<128x1024xf32>) -> (tensor<128x1024xf32>) {
   %cst = "tf.Const"() <{value = dense<0> : tensor<i32>}> {device = ""} : () -> tensor<i32>
@@ -889,4 +889,47 @@ func.func private @_func(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f
   %0 = "tf.Mul"(%arg0, %arg1) {device = "/device:TPU_REPLICATED_CORE:0"} : (tensor<f32>, tensor<f32>) -> tensor<f32>
   %1 = "tf.Mul"(%arg2, %0) {device = "/device:TPU_REPLICATED_CORE:1"} : (tensor<f32>, tensor<f32>) -> tensor<f32>
   return %1 : tensor<f32>
+}
+
+// -----
+// CHECK-LABEL: func @check_AddV2_sharding_propagation
+func.func @check_AddV2_sharding_propagation(%arg0: tensor<4xf32>) {
+  // CHECK:      tf_device.cluster_func
+  // CHECK-SAME: input_sharding_configuration = ["\01\02\03"]
+  // CHECK-SAME: output_sharding_configuration = ["\01\02\03"]
+  "tf_device.cluster_func"(%arg0) {
+      func = @func,
+      use_spmd_for_xla_partitioning = false, num_cores_per_replica = 1 : i64
+  } : (tensor<4xf32>) -> tensor<4xf32>
+  func.return
+}
+
+// CHECK-LABEL: func @func
+// CHECK: {{.*}}mhlo.sharding = "\01\02\03"{{.*}}->{{.*}}mhlo.sharding = "\01\02\03"
+func.func @func(%arg0: tensor<4xf32>) -> tensor<4xf32> {
+  %cst = "tf.Const"() {value = dense<23.0> : tensor<4xf32>} : () -> tensor<4xf32>
+  %add = "tf.AddV2"(%cst, %arg0) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  %0 = "tf.XlaSharding"(%add) { _XlaSharding = "\01\02\03"} : (tensor<4xf32>) -> tensor<4xf32>
+  func.return %0 : tensor<4xf32>
+}
+
+// -----
+// CHECK-LABEL: func @check_Exp_sharding_propagation
+func.func @check_Exp_sharding_propagation(%arg0: tensor<4xf32>) {
+  // CHECK:      tf_device.cluster_func
+  // CHECK-SAME: input_sharding_configuration = ["\01\02\03"]
+  // CHECK-SAME: output_sharding_configuration = ["\01\02\03"]
+  "tf_device.cluster_func"(%arg0) {
+      func = @func,
+      use_spmd_for_xla_partitioning = false, num_cores_per_replica = 1 : i64
+  } : (tensor<4xf32>) -> tensor<4xf32>
+  func.return
+}
+
+// CHECK-LABEL: func @func
+// CHECK: {{.*}}mhlo.sharding = "\01\02\03"{{.*}}->{{.*}}mhlo.sharding = "\01\02\03"
+func.func @func(%arg0: tensor<4xf32>) -> tensor<4xf32> {
+  %exp = "tf.Exp"(%arg0) : (tensor<4xf32>) -> tensor<4xf32>
+  %0 = "tf.XlaSharding"(%exp) { _XlaSharding = "\01\02\03"} : (tensor<4xf32>) -> tensor<4xf32>
+  func.return %0 : tensor<4xf32>
 }

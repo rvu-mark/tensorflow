@@ -103,6 +103,25 @@ mlir::Operation* NullUnlessSharded(PartitionedOp op) {
   return op.get_XlaSharding() ? op : nullptr;
 }
 
+// Returns true if the op has one of the traits that meets the requirements for
+// sharding as follows, otherwise returns false.
+// 1. Trait "SameOperandsAndResultTypeResolveRef" for Cast, real/imag, etc.
+// 2. Trait "SameOperandsAndResultType" for Exp, ceil, etc.
+// 3. Trait "OperandsSameAsResultsTypeOrRef" for Identity.
+// 4. Trait "CwiseBinary" and "SameOperandsAndResultElementTypeResolveRef" for
+//    AddV2, Sub, etc.
+bool OpHasSpecialTraits(Operation* op) {
+  if (op->hasTrait<mlir::OpTrait::TF::SameOperandsAndResultTypeResolveRef>())
+    return true;
+  if (op->hasTrait<mlir::OpTrait::SameOperandsAndResultType>()) return true;
+  if (op->hasTrait<mlir::OpTrait::TF::OperandsSameAsResultsTypeOrRef>())
+    return true;
+  if (op->hasTrait<
+          mlir::OpTrait::TF::SameOperandsAndResultElementTypeResolveRef>() &&
+      op->hasTrait<mlir::OpTrait::TF::CwiseBinary>())
+    return true;
+  return false;
+}
 // Returns a TPUPartitionedInput op connected to a `tf_device.cluster_func`
 // operand value if it has an XLA sharding. If value is a resource type then
 // TPUPartitionedInput op will be connected to a ReadVariable op that feeds into
@@ -295,7 +314,12 @@ std::optional<llvm::StringRef> GetXlaShardingFromArg(
           continue;
         }
 
-        if (llvm::isa<mlir::TF::IdentityOp, mlir::TF::CastOp,
+        if (OpHasSpecialTraits(owner)) {
+          next_values_to_visit.push_back(use.getOwner()->getResult(0));
+          continue;
+        }
+
+        if (llvm::isa<mlir::TF::CastOp, mlir::TF::XlaAllReduceOp,
                       mlir::TF::ReadVariableOp>(owner)) {
           next_values_to_visit.push_back(use.getOwner()->getResult(0));
           continue;
@@ -456,17 +480,7 @@ std::optional<StringRef> GetXlaShardingFromRetval(
       return logical_device;
     }
 
-    if (  // Cast, real/imag, etc.
-        def->hasTrait<
-            mlir::OpTrait::TF::SameOperandsAndResultTypeResolveRef>() ||
-        // Exp, ceil, etc.
-        def->hasTrait<mlir::OpTrait::SameOperandsAndResultType>() ||
-        // Identity
-        def->hasTrait<mlir::OpTrait::TF::OperandsSameAsResultsTypeOrRef>() ||
-        // AddV2, Sub, etc.
-        (def->hasTrait<
-             mlir::OpTrait::TF::SameOperandsAndResultElementTypeResolveRef>() &&
-         def->hasTrait<mlir::OpTrait::TF::CwiseBinary>())) {
+    if (OpHasSpecialTraits(def)) {
       for (auto operand : def->getOperands()) {
         values_to_visit.push_back(operand);
       }
