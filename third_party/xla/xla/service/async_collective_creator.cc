@@ -29,6 +29,8 @@ limitations under the License.
 #include "xla/hlo/ir/hlo_opcode.h"
 #include "xla/hlo/ir/hlo_schedule.h"
 #include "xla/service/shape_inference.h"
+#include "xla/shape.h"
+#include "xla/shape_util.h"
 #include "xla/util.h"
 #include "tsl/platform/errors.h"
 
@@ -129,6 +131,17 @@ absl::StatusOr<ReplacedAsync> CreateAsyncStartDone(
   return ReplacedAsync{start, done};
 }
 
+int64_t GetShapeSize(const Shape& shape) {
+  int64_t size_in_bytes = 0;
+  if (shape.IsTuple()) {
+    for (int64_t i = 0; i < shape.tuple_shapes_size(); ++i) {
+      size_in_bytes += GetShapeSize(shape.tuple_shapes(i));
+    }
+    return size_in_bytes;
+  }
+  return ShapeUtil::ByteSizeOfElements(shape);
+}
+
 }  // namespace
 
 // Find all supported collective ops first as we can't modify the instructions
@@ -139,7 +152,8 @@ std::vector<HloInstruction*> AsyncCollectiveCreator::MatchCollectives(
   for (HloInstruction* instruction : computation->instructions()) {
     const HloOpcode op = instruction->opcode();
     if ((op == HloOpcode::kAllReduce &&
-         config_.convert_all_reduce(instruction)) ||
+         config_.convert_all_reduce(instruction) &&
+         GetShapeSize(instruction->shape()) >= 4096) ||
         (op == HloOpcode::kAllGather &&
          config_.convert_all_gather(instruction)) ||
         (op == HloOpcode::kCollectiveBroadcast &&
@@ -149,7 +163,8 @@ std::vector<HloInstruction*> AsyncCollectiveCreator::MatchCollectives(
         (op == HloOpcode::kAllToAll &&
          config_.convert_all_to_all(instruction)) ||
         (op == HloOpcode::kReduceScatter &&
-         config_.convert_reduce_scatter(instruction))) {
+         config_.convert_reduce_scatter(instruction) &&
+         GetShapeSize(instruction->operand(0)->shape()) >= 4096)) {
       supported_collectives.push_back(instruction);
     }
   }
