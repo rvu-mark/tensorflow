@@ -517,8 +517,7 @@ absl::StatusOr<ToolVersion> GetNvLinkVersion(
 
 absl::StatusOr<std::vector<uint8_t>> LinkUsingNvlink(
     stream_executor::CudaComputeCapability cc,
-    std::string_view preferred_cuda_dir, gpu::GpuContext* context,
-    std::vector<CubinOrPTXImage> images) {
+    std::string_view preferred_cuda_dir, std::vector<CubinOrPTXImage> images) {
   LOG_FIRST_N(INFO, 1) << "Using nvlink for parallel linking";
 
   TF_ASSIGN_OR_RETURN(std::string bin_path,
@@ -593,7 +592,7 @@ absl::StatusOr<std::vector<uint8_t>> LinkUsingNvlink(
 }
 
 absl::StatusOr<std::vector<uint8_t>> LinkGpuAsm(
-    stream_executor::CudaComputeCapability cc, gpu::GpuContext* context,
+    stream_executor::CudaComputeCapability cc, gpu::Context* context,
     std::vector<CubinOrPTXImage> images) {
   gpu::ScopedActivateContext activation(context);
 
