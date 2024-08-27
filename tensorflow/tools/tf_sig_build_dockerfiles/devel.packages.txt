@@ -40,6 +40,7 @@ build-essential
 ca-certificates
 llvm-18
 clang-18
+libclang-18-rt-dev
 clang-tidy-18
 lld-18
 clang-format-12
