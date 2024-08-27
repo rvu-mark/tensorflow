@@ -744,6 +744,42 @@ INSTANTIATE_TEST_SUITE_P(
                                              {HloOpcode::kCompare})),
     TritonSupportTestTypeOpcodeAndDeviceToString);
 
+using TransposeTest = TritonSupportTestWithParam;
+
+TEST_P(TransposeTest, LoadTranspose2D) {
+  auto [data_type, opcode, cc] = GetParam();
+  const std::string kHloTestTemplate = R"(
+ENTRY triton_computation {
+  parameter_0 = $0[125,127]{1,0} parameter(0)
+  ROOT transpose = $0[127,125]{1,0} $1(parameter_0), dimensions={1,0}
+})";
+  TF_ASSERT_OK_AND_ASSIGN(
+      TestedInstruction ti,
+      ParseTemplateAndGetInstruction(kHloTestTemplate, data_type, opcode));
+
+  RunSupportTest(std::move(ti), /*output_tile_sizes=*/{1, 32}, cc);
+}
+
+TEST_P(TransposeTest, LoadTranspose3D) {
+  auto [data_type, opcode, cc] = GetParam();
+  const std::string kHloTestTemplate = R"(
+ENTRY triton_computation {
+  parameter_0 = $0[125,127,37]{2,1,0} parameter(0)
+  ROOT transpose = $0[127,37,125]{2,1,0} $1(parameter_0), dimensions={1,2,0}
+})";
+  TF_ASSERT_OK_AND_ASSIGN(
+      TestedInstruction ti,
+      ParseTemplateAndGetInstruction(kHloTestTemplate, data_type, opcode));
+
+  RunSupportTest(std::move(ti), /*output_tile_sizes=*/{1, 32, 32}, cc);
+}
+
+constexpr std::array kTestedOpsTranspose = {HloOpcode::kTranspose};
+
+INSTANTIATE_TEST_SUITE_P(TransposeTestSuite, TransposeTest,
+                         AllTestCombinationsForOpcodes(kTestedOpsTranspose),
+                         TritonSupportTestTypeOpcodeAndDeviceToString);
+
 using CollectiveTest = TritonSupportTestWithParam;
 
 TEST_P(CollectiveTest, UnsupportedCollectivesFailGracefullyWithTriton) {
@@ -834,6 +870,7 @@ absl::flat_hash_set<HloOpcode> AllTestedOpcodes() {
   ret.insert(kTestedOpsTernaryElementwise.begin(),
              kTestedOpsTernaryElementwise.end());
   ret.insert(kTestedOpsReduction.begin(), kTestedOpsReduction.end());
+  ret.insert(kTestedOpsTranspose.begin(), kTestedOpsTranspose.end());
   ret.insert(kTestedOpsCollectives.begin(), kTestedOpsCollectives.end());
   return ret;
 }
@@ -901,7 +938,6 @@ absl::flat_hash_set<HloOpcode> AllUntestedOpcodes() {
                                         HloOpcode::kSort,
                                         HloOpcode::kStochasticConvert,
                                         HloOpcode::kTopK,
-                                        HloOpcode::kTranspose,
                                         HloOpcode::kTriangularSolve,
                                         HloOpcode::kTuple,
                                         HloOpcode::kWhile};
