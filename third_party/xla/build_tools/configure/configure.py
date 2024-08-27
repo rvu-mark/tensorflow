@@ -289,6 +289,9 @@ class XLAConfigOptions:
       rc.append(f"build --action_env GCC_HOST_COMPILER_PATH={dpav.gcc_path}")
     elif self.host_compiler == HostCompiler.CLANG:
       rc.append(f"build --action_env CLANG_COMPILER_PATH={dpav.clang_path}")
+      rc.append(
+          f"build --action_env CLANG_CUDA_COMPILER_PATH={dpav.clang_path}"
+      )
       rc.append(f"build --repo_env CC={dpav.clang_path}")
       rc.append(f"build --repo_env BAZEL_COMPILER={dpav.clang_path}")
       self.compiler_options.append("-Wno-error=unused-command-line-argument")
@@ -303,15 +306,9 @@ class XLAConfigOptions:
 
       if compiler_pair == (CudaCompiler.CLANG, HostCompiler.CLANG):
         rc.append("build --config cuda_clang")
-        rc.append(
-            f"build --action_env CLANG_CUDA_COMPILER_PATH={dpav.clang_path}"
-        )
       elif compiler_pair == (CudaCompiler.NVCC, HostCompiler.CLANG):
         rc.append("build --config nvcc_clang")
         # This is demanded by cuda_configure.bzl
-        rc.append(
-            f"build --action_env CLANG_CUDA_COMPILER_PATH={dpav.clang_path}"
-        )
       elif compiler_pair == (CudaCompiler.NVCC, HostCompiler.GCC):
         rc.append("build --config cuda")
       else:
