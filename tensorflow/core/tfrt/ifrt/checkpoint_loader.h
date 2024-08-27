@@ -15,13 +15,15 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_TFRT_IFRT_CHECKPOINT_LOADER_H_
 #define TENSORFLOW_CORE_TFRT_IFRT_CHECKPOINT_LOADER_H_
 
+#include <string>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "mlir/IR/BuiltinOps.h"  // from @llvm-project
-#include "mlir/IR/OwningOpRef.h"  // from @llvm-project
 #include "tensorflow/core/framework/types.pb.h"
+#include "tensorflow/core/tfrt/ifrt/ifrt_loaded_variable_registry.h"
 #include "tensorflow/core/tfrt/ifrt/ifrt_restore_tensor_registry.h"
 #include "tensorflow/core/tfrt/mlrt/bytecode/bytecode.h"
 #include "tensorflow/core/tfrt/mlrt/kernel/context.h"
@@ -44,7 +46,7 @@ class CheckpointLoader {
   virtual ~CheckpointLoader() = default;
 
   // Called before `Load` to do some preparation work.
-  virtual absl::Status PrepareRestore(mlir::OwningOpRef<mlir::ModuleOp> module);
+  virtual absl::Status PrepareRestore(mlir::ModuleOp module);
 
   // Load the checkpoint. This API is designed to be compatible with the
   // `tf_mlrt.ifrt_restore_variable` kernel.
@@ -57,6 +59,7 @@ class CheckpointLoader {
       const mlrt::bc::Vector<bool>& truncate_in_cast,
       tf_mlrt::Context& context);
 
+ protected:
   IfrtRestoreTensorRegistry* ifrt_restore_tensor_registry_;
   tfrt::ConcurrentWorkQueue* checkpoint_loader_work_queue_;
 };
