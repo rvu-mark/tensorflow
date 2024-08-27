@@ -31,6 +31,7 @@ limitations under the License.
 #include "absl/synchronization/notification.h"
 #include "xla/stream_executor/gpu/gpu_diagnostics.h"
 #include "xla/stream_executor/gpu/gpu_driver.h"
+#include "xla/stream_executor/gpu/scoped_activate_context.h"
 #include "xla/stream_executor/platform/port.h"
 #include "xla/stream_executor/rocm/rocm_driver_wrapper.h"
 #include "xla/stream_executor/stream_executor.h"
@@ -192,73 +193,15 @@ void SynchronizeOrDie() {
   }
 }
 
-thread_local struct ThreadLocalData {
-  int current_device_ordinal;
-  GpuContext* context;  // Only valid if id == a known good context.
-  int depth;
-} tls_data = {};
-
 }  // namespace
 
-ScopedActivateContext::ScopedActivateContext(GpuContext* hip_context) {
+void GpuContext::SetActive() {
   if (FLAGS_gpuexec_rocm_sync_around_driver_calls) SynchronizeOrDie();
-
-  auto* tls = &tls_data;
-  if (tls->depth == 0) {
-    VLOG(3) << "ScopedActivateContext switching to "
-            << hip_context->device_ordinal();
-    FAIL_IF_ROCM_ERROR(wrap::hipCtxSetCurrent(hip_context->context()),
-                       "Failed setting context");
-    tls->depth = 1;
-    tls->current_device_ordinal = hip_context->device_ordinal();
-    tls->context = hip_context;
-    to_restore_ = nullptr;
-    return;
-  }
-
-  tls->depth++;
-  if (tls->current_device_ordinal == hip_context->device_ordinal()) {
-    if (kVerifyGpuContext) {
-      CHECK_EQ(CurrentContext(), hip_context->context());
-    }
-    DCHECK_EQ(CurrentContext(), hip_context->context());
-    return;
-  }
-  VLOG(3) << "ScopedActivateContext switching device from "
-          << tls->current_device_ordinal << " to "
-          << hip_context->device_ordinal();
-
-  to_restore_ = tls->context;
-  // Set the device and update thread local.
-  FAIL_IF_ROCM_ERROR(wrap::hipCtxSetCurrent(hip_context->context()),
+  FAIL_IF_ROCM_ERROR(wrap::hipCtxSetCurrent(context_),
                      "Failed setting context");
-  tls->current_device_ordinal = hip_context->device_ordinal();
-  tls->context = hip_context;
 }
 
-ScopedActivateContext::~ScopedActivateContext() {
-  if (FLAGS_gpuexec_rocm_sync_around_driver_calls) SynchronizeOrDie();
-
-  auto* tls = &tls_data;
-
-  if (kVerifyGpuContext) {
-    CHECK_EQ(CurrentContext(),
-             tls->context == nullptr ? nullptr : tls->context->context());
-  }
-
-  tls->depth--;
-  DCHECK_GE(tls->depth, 0);
-
-  if (to_restore_ == nullptr) {
-    return;  // Leave context, tls->current_device_ordinal, and tls->context set
-  }
-
-  // Set context and update thread local.
-  FAIL_IF_ROCM_ERROR(wrap::hipCtxSetCurrent(to_restore_->context()),
-                     "Failed setting context");
-  tls->current_device_ordinal = to_restore_->device_ordinal();
-  tls->context = to_restore_;
-}
+bool GpuContext::IsActive() const { return CurrentContext() == context_; }
 
 namespace {
 
@@ -445,12 +388,12 @@ static absl::Status InternalInit() {
     return;
   }
   hipCtx_t former_context = CurrentContext();
-  hipError_t res = wrap::hipCtxSetCurrent(context->context());
+  context->SetActive();
   hipDevice_t device;
   CHECK_EQ(hipSuccess, wrap::hipCtxGetDevice(&device));
   CHECK_EQ(hipSuccess, wrap::hipCtxSetCurrent(former_context));
 
-  res = wrap::hipDevicePrimaryCtxRelease(device);
+  auto res = wrap::hipDevicePrimaryCtxRelease(device);
 
   if (res != hipSuccess) {
     LOG(ERROR) << "failed to release HIP context; leaking: " << ToString(res);
